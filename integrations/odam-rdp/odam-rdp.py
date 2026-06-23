@@ -265,8 +265,9 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
     )
 
     users_seen: set[str] = set()
-    targets_seen: set[str] = set()
-    # target → set of source IPs already added as sub-resources
+    # target_id → ApplicationResource object
+    resource_map: dict[str, object] = {}
+    # target_id → set of source IPs already added as sub-resources
     sources_seen: dict[str, set[str]] = {}
 
     for row in rows:
@@ -284,15 +285,15 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
             log.debug("Added user: %s", user_id)
 
         # --- Application Resource (Target) ------------------------------
-        if target_id not in targets_seen:
-            app.add_resource(target_id, "RDP Target")
-            targets_seen.add(target_id)
+        if target_id not in resource_map:
+            resource_obj = app.add_resource(target_id, "RDP Target")
+            resource_map[target_id] = resource_obj
             sources_seen[target_id] = set()
             log.debug("Added resource (target): %s", target_id)
 
         # --- Sub-Resource (Source IP) -----------------------------------
         if source_id and source_id not in sources_seen[target_id]:
-            app.add_sub_resource(target_id, source_id, "Source IP")
+            resource_map[target_id].add_sub_resource(source_id, "Source IP")
             sources_seen[target_id].add(source_id)
             log.debug("Added sub-resource (source): %s → %s", target_id, source_id)
 
@@ -300,13 +301,13 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
         app.local_users[user_id].add_permission(
             "rdp_access",
             apply_to_application=False,
-            resources=[app.resources[target_id]],
+            resources=[resource_map[target_id]],
         )
 
     log.info(
         "Payload built — Users: %d | Targets (Resources): %d | Sources (Sub-Resources): %d",
         len(users_seen),
-        len(targets_seen),
+        len(resource_map),
         sum(len(v) for v in sources_seen.values()),
     )
     return app
