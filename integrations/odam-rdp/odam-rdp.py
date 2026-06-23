@@ -271,14 +271,15 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
     sources_seen: dict[str, set[str]] = {}
 
     for row in rows:
-        user_id = row["user"]
+        # Normalise user_id to lowercase so mixed-case variants of the same
+        # account (e.g. svcGSBGSYSTEM / svcgsbgsystem) map to one OAA entry.
+        user_id = row["user"].lower()
+        display_name = row["user"].split("\\")[-1] if "\\" in row["user"] else row["user"]
         target_id = row["target"]
         source_id = row["source"]
 
         # --- Local User -------------------------------------------------
         if user_id not in users_seen:
-            # Strip domain prefix for the display name if present
-            display_name = user_id.split("\\")[-1] if "\\" in user_id else user_id
             u = app.add_local_user(user_id)
             u.name = display_name
             users_seen.add(user_id)
