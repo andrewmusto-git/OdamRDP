@@ -285,24 +285,20 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
 
         # --- Application Resource (Target) ------------------------------
         if target_id not in targets_seen:
-            app.add_resource(resource_name=target_id, resource_type="RDP Target")
+            app.add_resource(target_id, "RDP Target")
             targets_seen.add(target_id)
             sources_seen[target_id] = set()
             log.debug("Added resource (target): %s", target_id)
 
         # --- Sub-Resource (Source IP) -----------------------------------
         if source_id and source_id not in sources_seen[target_id]:
-            app.add_sub_resource(
-                resource_name=target_id,
-                sub_resource_name=source_id,
-                sub_resource_type="Source IP",
-            )
+            app.add_sub_resource(target_id, source_id, "Source IP")
             sources_seen[target_id].add(source_id)
             log.debug("Added sub-resource (source): %s → %s", target_id, source_id)
 
         # --- Permission assignment: user → rdp_access → target ----------
         app.local_users[user_id].add_permission(
-            permission="rdp_access",
+            "rdp_access",
             apply_to_application=False,
             resources=[app.resources[target_id]],
         )
