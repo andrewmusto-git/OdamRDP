@@ -280,7 +280,6 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
             display_name = user_id.split("\\")[-1] if "\\" in user_id else user_id
             u = app.add_local_user(user_id)
             u.name = display_name
-            u.add_attribute("domain_user", user_id)
             users_seen.add(user_id)
             log.debug("Added user: %s", user_id)
 
