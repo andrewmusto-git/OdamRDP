@@ -249,10 +249,16 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
     """
     Construct an OAA CustomApplication from RDP session rows.
 
-    OAA graph model:
-      Local User
-        └──(rdp_access)──► Application Resource (Target / RDP host)
-                                └── Sub-Resource (Source IP)
+    Access graph order:  User  ──►  Target  ──►  Source
+    ---------------------------------------------------------------------------
+    Example row:  WESTROCK\\4518ediservice , 001ITAPPS , 10.15.2.153
+                         │                      │               │
+                    Local User         Application Resource   Sub-Resource
+                 (col A / User)       (col B / Target host)  (col C / Source IP)
+
+    Each User receives one `rdp_access` permission edge per unique Target.
+    Each Target owns all Source IPs that have connected to it as Sub-Resources,
+    so the Veza traversal renders: User → Target → Source IP(s).
     """
     app = CustomApplication(
         name=config["datasource_name"],
