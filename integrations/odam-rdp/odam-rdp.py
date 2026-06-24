@@ -249,16 +249,17 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
     """
     Construct an OAA CustomApplication from RDP session rows.
 
-    OAA model:
-      Local User  ──(rdp_access)──► Application Resource (Target)
-                                         └── Sub-Resource (Source IP)
+    OAA graph model:
+      Local User
+        └──(rdp_access)──► Application Resource (Target / RDP host)
+                                └── Sub-Resource (Source IP)
     """
     app = CustomApplication(
         name=config["datasource_name"],
         application_type=config["provider_name"],
     )
 
-    # Single permission: an RDP session implies the user can reach the target
+    # Single permission: an RDP session means the user can reach the target
     app.add_custom_permission(
         "rdp_access",
         [OAAPermission.DataRead, OAAPermission.MetadataRead],
@@ -269,6 +270,8 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
     resource_map: dict[str, object] = {}
     # target_id → set of source IPs already added as sub-resources
     sources_seen: dict[str, set[str]] = {}
+    # (user_id, target_id) pairs already granted rdp_access — one edge per pair
+    permissions_seen: set[tuple] = set()
 
     for row in rows:
         # Normalise user_id to lowercase so mixed-case variants of the same
@@ -300,12 +303,18 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
             sources_seen[target_id].add(source_id)
             log.debug("Added sub-resource (source): %s → %s", target_id, source_id)
 
-        # --- Permission assignment: user → rdp_access → target ----------
-        app.local_users[user_id].add_permission(
-            "rdp_access",
-            apply_to_application=False,
-            resources=[resource_map[target_id]],
-        )
+        # --- Permission: User ──(rdp_access)──► Target ──► Source -------
+        # One permission edge per unique (user, target) pair so the Veza
+        # graph renders: User > Target > Source in the correct order.
+        perm_pair = (user_id, target_id)
+        if perm_pair not in permissions_seen:
+            app.local_users[user_id].add_permission(
+                "rdp_access",
+                apply_to_application=False,
+                resources=[resource_map[target_id]],
+            )
+            permissions_seen.add(perm_pair)
+            log.debug("Granted rdp_access: %s → %s", user_id, target_id)
 
     log.info(
         "Payload built — Users: %d | Targets (Resources): %d | Sources (Sub-Resources): %d",
