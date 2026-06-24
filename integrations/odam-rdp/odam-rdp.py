@@ -309,9 +309,8 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
             sources_seen[target_id].add(source_id)
             log.debug("Added sub-resource (source): %s → %s", target_id, source_id)
 
-        # --- Permission: User ──(rdp_access)──► Target ──► Source -------
-        # One permission edge per unique (user, target) pair so the Veza
-        # graph renders: User > Target > Source in the correct order.
+        # --- Permission: User ──(rdp_access)──► Target ------------------
+        # One edge per unique (user, target) pair.
         perm_pair = (user_id, target_id)
         if perm_pair not in permissions_seen:
             app.local_users[user_id].add_permission(
@@ -321,6 +320,21 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
             )
             permissions_seen.add(perm_pair)
             log.debug("Granted rdp_access: %s → %s", user_id, target_id)
+
+        # --- Permission: User ──(rdp_access)──► Source IP ---------------
+        # Assign a direct permission edge from the user to each Source IP
+        # sub-resource so it appears as its own node in Access Builder —
+        # no need to expand the Target to find Source IP information.
+        if source_id:
+            src_perm_pair = (user_id, target_id, source_id)
+            if src_perm_pair not in permissions_seen:
+                app.local_users[user_id].add_permission(
+                    "rdp_access",
+                    apply_to_application=False,
+                    resources=[resource_map[target_id].sub_resources[source_id]],
+                )
+                permissions_seen.add(src_perm_pair)
+                log.debug("Granted rdp_access: %s → %s/%s", user_id, target_id, source_id)
 
     log.info(
         "Payload built — Users: %d | Targets (Resources): %d | Sources (Sub-Resources): %d",
