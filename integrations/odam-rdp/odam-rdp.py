@@ -273,8 +273,10 @@ def build_oaa_payload(rows: list[dict], config: dict) -> CustomApplication:
     for row in rows:
         # Normalise user_id to lowercase so mixed-case variants of the same
         # account (e.g. svcGSBGSYSTEM / svcgsbgsystem) map to one OAA entry.
+        # Use the full domain\username (original casing) as the display name
+        # to keep it unique across domains.
         user_id = row["user"].lower()
-        display_name = row["user"].split("\\")[-1] if "\\" in row["user"] else row["user"]
+        display_name = row["user"]
         target_id = row["target"]
         source_id = row["source"]
 
